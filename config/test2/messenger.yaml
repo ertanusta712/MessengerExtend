@@ -1,0 +1,32 @@
+framework:
+    messenger:
+
+        # Uncomment this (and the failed transport below) to send failed messages to this transport for later handling.
+        # failure_transport: failed
+        transports:
+            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            transport2:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    exchange:
+                        name: ustalar
+                        type: direct
+                    queues:
+                        usta_1:
+                            binding_keys: [ usta_1 ]
+                        usta_2:
+                            binding_keys: [ usta_2 ]
+                        usta_3:
+                            binding_keys: [ usta_3 ]
+
+
+            # failed: 'doctrine://default?queue_name=failed'
+            # sync: 'sync://'
+
+        routing:
+            'App\Message\ErtanNotification': transport2
+
+
+
+
+
