@@ -38,6 +38,12 @@ services:
         tags:
             - { name: 'dispatcher.service' }
 
+    App\Services\QueueService:
+        public: true
+        arguments:
+            - '%env(MESSENGER_TRANSPORT_DSN)%'
+            - '%env(REDIS_API_DSN)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
     App\Command\ConsumerMessengerCommand:
@@ -46,6 +52,16 @@ services:
             - '@messenger.routable_message_bus'
         tags:
             - { name: 'console.command.messenger_consume_messages', command: 'ertan:consume' }
+
+    App\Services\RedisService:
+        arguments:
+            - '%env(REDIS_DSN)%'
+
+    App\Services\IdeaSoftMessenger:
+        arguments:
+            - '%env(MESSENGER_TRANSPORT_DSN)%'
+            - '%env(REDIS_DSN)%'
+            - '@messenger.default_bus'
 
 
 

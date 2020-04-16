@@ -9,6 +9,7 @@ use Symfony\Component\Yaml\Yaml;
 
 trait QueueHelper
 {
+
     /** @var string $host */
     private $host;
 

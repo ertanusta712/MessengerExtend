@@ -17,6 +17,8 @@ framework:
                             binding_keys: [ ertan_2 ]
                         ertan_3:
                             binding_keys: [ ertan_3 ]
+                        ertan_4:
+                            binding_keys: [ ertan_4 ]
 
 
             # failed: 'doctrine://default?queue_name=failed'
