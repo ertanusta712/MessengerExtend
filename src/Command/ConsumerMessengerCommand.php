@@ -4,6 +4,7 @@ namespace App\Command;
 
 
 use App\Services\ConsumerService;
+use App\Services\MessengerBaseService;
 use Closure;
 use phpDocumentor\Reflection\Types\Array_;
 use Psr\Container\ContainerInterface;
@@ -35,6 +36,11 @@ class ConsumerMessengerCommand extends Command
     private $eventDispatcher;
     private $consumerService;
 
+    /**
+     * @var MessengerBaseService
+     */
+    private $messengerBaseService;
+
 
     /**
      * @param ConsumerService $consumerService
@@ -43,7 +49,7 @@ class ConsumerMessengerCommand extends Command
      * @param LoggerInterface|null $logger
      * @param array $receiverNames
      */
-    public function __construct(ConsumerService $consumerService, $routableBus, EventDispatcherInterface $eventDispatcher, LoggerInterface $logger = null)
+    public function __construct(MessengerBaseService $messengerBaseService, $routableBus, EventDispatcherInterface $eventDispatcher, LoggerInterface $logger = null)
     {
 
         if ($routableBus instanceof ContainerInterface) {
@@ -56,7 +62,8 @@ class ConsumerMessengerCommand extends Command
         $this->routableBus = $routableBus;
         $this->logger = $logger;
         $this->eventDispatcher = $eventDispatcher;
-        $this->consumerService=$consumerService;
+        $this->messengerBaseService = $messengerBaseService;
+
         parent::__construct();
     }
 
@@ -136,7 +143,8 @@ EOF
             $this->eventDispatcher->addSubscriber(new StopWorkerOnTimeLimitListener($timeLimit, $this->logger));
         }
 
-        $receiver=$this->consumerService->createAmqpTransport($input->getArgument('receiver'),$input->getOption('queue-name'));
+        $this->messengerBaseService->getConsumerService()->updateLocalConfig();
+        $receiver=$this->messengerBaseService->getConsumerService()->createAmqpTransport($input->getArgument('receiver'),$input->getOption('queue-name'));
 
 
         $bus = $input->getOption('bus') ? $this->routableBus->getMessageBus($input->getOption('bus')) : $this->routableBus;

@@ -4,11 +4,16 @@
 namespace App\Traits;
 
 
+use App\Services\IdeasoftMessenger;
+use App\Services\RedisService;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\Yaml\Yaml;
 
 trait QueueHelper
 {
+
+    /** @var string $dsn */
+    private $dsn;
 
     /** @var string $host */
     private $host;
@@ -30,6 +35,9 @@ trait QueueHelper
 
     /** @var array $routingsKeys */
     private $routingsKeys = [];
+
+    /** @var RedisService $redisService */
+    private $redisService;
 
     private function parseTransports()
     {
@@ -80,6 +88,58 @@ trait QueueHelper
         $this->setPassword(explode('@', $dsn[1])[0]);
         $this->setHost(explode('@', $dsn[1])[1]);
         $this->setPort(explode('/', $dsn[2])[0]);
+    }
+
+    /**
+     * method redis içerisinde kayıtlı bir yapılandırmanın olup olmadığını kontrol eder
+     * @param $dsn
+     */
+    private function init(): void
+    {
+        if ($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT) === false) {
+            $this->parseDsn($this->getDsn());
+            $this->parseTransports();
+            $this->parseRoutings();
+            $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_TRANSPORT, json_encode($this->getTransports()));
+            $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTINGS, json_encode($this->getRoutings()));
+            $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTING_KEYS, json_encode($this->getRoutingsKeys()));
+        } else {
+            $this->setTransports(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT), true));
+            $this->setRoutings(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTINGS), true));
+            $this->setRoutingsKeys(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTING_KEYS), true));
+        }
+    }
+
+    /**
+     * messenger.yaml da var olan configleri yükler
+     */
+    public function refreshSettings()
+    {
+        $this->parseDsn($this->getDsn());
+        $this->parseTransports();
+        $this->parseRoutings();
+        $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_TRANSPORT, json_encode($this->getTransports()));
+        $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTINGS, json_encode($this->getRoutings()));
+        $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTING_KEYS, json_encode($this->getRoutingsKeys()));
+    }
+
+    /**
+     *  Redis üzerinde ki config'i günceller
+     */
+    public function updateRedisConfig()
+    {
+        $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_TRANSPORT, json_encode($this->getTransports()));
+        $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTINGS, json_encode($this->getRoutings()));
+        $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTING_KEYS, json_encode($this->getRoutingsKeys()));
+    }
+
+    /**
+     * Local configleri günceller
+     */
+    public function updateLocalConfig(){
+        $this->setTransports(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT), true));
+        $this->setRoutings(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTINGS), true));
+        $this->setRoutingsKeys(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTING_KEYS), true));
     }
 
 
@@ -194,6 +254,40 @@ trait QueueHelper
     {
         $this->routingsKeys = $routingsKeys;
     }
+
+    /**
+     * @return string
+     */
+    public function getDsn(): string
+    {
+        return $this->dsn;
+    }
+
+    /**
+     * @param string $dsn
+     */
+    public function setDsn(string $dsn): void
+    {
+        $this->dsn = $dsn;
+    }
+
+    /**
+     * @return RedisService
+     */
+    public function getRedisService(): RedisService
+    {
+        return $this->redisService;
+    }
+
+    /**
+     * @param RedisService $redisService
+     */
+    public function setRedisService(RedisService $redisService): void
+    {
+        $this->redisService = $redisService;
+    }
+
+
 
 
 }

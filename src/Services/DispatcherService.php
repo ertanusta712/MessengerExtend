@@ -22,15 +22,11 @@ class DispatcherService
     /** @var ContainerInterface $container */
     private $container;
 
+    /** @var QueueService $queueService */
+    private $queueService;
+
     /** @var int $roundRobin */
     private $roundRobin = 0;
-
-    /** @var RedisService $redisService */
-    private $redisService;
-
-    /** @var string $dsn */
-    private $dsn;
-
 
     /**
      * DispatcherService constructor.
@@ -39,52 +35,29 @@ class DispatcherService
      * @param RedisService $redisService
      * @param ContainerInterface $container
      */
-    public function __construct($dsn, $bus, RedisService $redisService, ContainerInterface $container)
+    public function __construct($dsn, $bus, RedisService $redisService,ContainerInterface $container)
     {
         $this->setDsn($dsn);
         $this->setContainer($container);
-        $this->setBus($bus);
         $this->setRedisService($redisService);
         $this->init();
-
-
+        $this->setBus($bus);
     }
 
-    /**
-     * method redis içerisinde kayıtlı bir yapılandırmanın olup olmadığını kontrol eder
-     * @param $dsn
-     */
-    private function init(): void
-    {
-        if ($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT) === false) {
-            $this->parseDsn($this->getDsn());
-            $this->parseTransports();
-            $this->parseRoutings();
-            $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_TRANSPORT, json_encode($this->getTransports()));
-            $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTINGS, json_encode($this->getRoutings()));
-            $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTING_KEYS, json_encode($this->getRoutingsKeys()));
-        } else {
-            $this->setTransports(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT), true));
-            $this->setRoutings(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTINGS), true));
-            $this->setRoutingsKeys(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTING_KEYS), true));
-        }
-    }
 
     /**
-     * @param $messageObject
+     * @param $message
      * @param $routingKey
      */
     public function dispatchWithRouting($message, $routingKey): void
     {
         $transport = $this->arraySearch($message);
-        $this->counterQueueMessage($transport, $routingKey);
         $this->getBus()->dispatch(new Envelope($message, [
             new AmqpStamp($routingKey)
         ]));
     }
 
     /**
-     * sadece statik olarak tanımlanmış kuyruklar için geçerlidir
      * @param $message
      */
     public function dispatchRandom($message): void
@@ -95,7 +68,6 @@ class DispatcherService
         }
         $totalQueueCount = count($this->getRoutingsKeys()[$transport]);
         $routingKey = $this->getRoutingsKeys()[$transport][rand(0, $totalQueueCount - 1)];
-        $this->counterQueueMessage($transport, $routingKey);
         $this->dispatchWithRouting($message, $routingKey);
     }
 
@@ -112,7 +84,6 @@ class DispatcherService
         } else {
             $this->roundRobin = 0;
         }
-        $this->counterQueueMessage($transport, $routingKey);
         $this->dispatchWithRouting($message, $routingKey);
     }
 
@@ -148,17 +119,6 @@ class DispatcherService
         $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTING_KEYS, json_encode($this->getRoutingsKeys()));
     }
 
-    public function counterQueueMessage($transport, $queue)
-    {
-
-        $queueCount = $this->getRedisService()->getClient()->get(sprintf(IdeasoftMessenger::REDIS_QUEUE_MESSAGE_COUNT, $transport, $queue));
-        if ($queueCount === false) {
-            $this->getRedisService()->getClient()->set(sprintf(IdeasoftMessenger::REDIS_QUEUE_MESSAGE_COUNT, $transport, $queue), 1);
-            return;
-        }
-        $this->getRedisService()->getClient()->incr(sprintf(IdeasoftMessenger::REDIS_QUEUE_MESSAGE_COUNT, $transport, $queue));
-    }
-
     /**
      * @return mixed
      */
@@ -192,36 +152,22 @@ class DispatcherService
     }
 
     /**
-     * @return RedisService
+     * @return QueueService
      */
-    public function getRedisService(): RedisService
+    public function getQueueService(): QueueService
     {
-        return $this->redisService;
+        return $this->queueService;
     }
 
     /**
-     * @param RedisService $redisService
+     * @param QueueService $queueService
      */
-    public function setRedisService(RedisService $redisService): void
+    public function setQueueService(QueueService $queueService): void
     {
-        $this->redisService = $redisService;
+        $this->queueService = $queueService;
     }
 
-    /**
-     * @return string
-     */
-    public function getDsn(): string
-    {
-        return $this->dsn;
-    }
 
-    /**
-     * @param string $dsn
-     */
-    public function setDsn(string $dsn): void
-    {
-        $this->dsn = $dsn;
-    }
 
 
 }

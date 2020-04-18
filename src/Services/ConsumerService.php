@@ -19,8 +19,13 @@ class ConsumerService
     /** @var ContainerInterface $container */
     private $container;
 
-    public function __construct($dsn, ContainerInterface $container)
+    /** @var QueueService $queueService */
+    private $queueService;
+
+    public function __construct($dsn, RedisService $redisService, QueueService $queueService, ContainerInterface $container)
     {
+        $this->setQueueService($queueService);
+        $this->setRedisService($redisService);
         $this->setContainer($container);
         $this->parseDsn($dsn);
         $this->parseTransports();
@@ -93,6 +98,23 @@ class ConsumerService
     {
         $this->container = $container;
     }
+
+    /**
+     * @return QueueService
+     */
+    public function getQueueService(): QueueService
+    {
+        return $this->queueService;
+    }
+
+    /**
+     * @param QueueService $queueService
+     */
+    public function setQueueService(QueueService $queueService): void
+    {
+        $this->queueService = $queueService;
+    }
+
 
 
 }

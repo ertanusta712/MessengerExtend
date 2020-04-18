@@ -10,6 +10,7 @@ use App\Message\Notification3;
 use App\Services\ConsumerService;
 use App\Services\DispatcherService;
 use App\Services\IdeasoftMessenger;
+use App\Services\MessengerBaseService;
 use App\Services\QueueService;
 use App\Services\RedisService;
 use http\Client\Request;
@@ -39,10 +40,10 @@ class MessengerController extends AbstractController
     /**
      * @Route("/messenger", name="messanger")
      */
-    public function index(ContainerInterface $container, DispatcherService $dispatcherService, RedisService $redisService, QueueService $queueService)
+    public function index(ContainerInterface $container, MessengerBaseService $messengerBaseService)
     {
 
-        dd($queueService->getQueueStats('ertan_3'));
+
         /*  $path= $container->get('kernel')->getProjectDir();
           $result=Yaml::parseFile($path.'/config/packages/messenger.yaml');
           $ertan=explode('/',$result['imports'][0]['resource']);
@@ -50,16 +51,14 @@ class MessengerController extends AbstractController
           dd(Yaml::parseFile($path.'/config/'.$ertan[1].'/'.$ertan[2]));*/
 
 
+
+        $messengerBaseService->refreshSettings();
+        $messengerBaseService->updateLocalConfig();
+        $messengerBaseService->getQueueService()->deleteEmptyQueue();
+        $messengerBaseService->getQueueService()->refreshSettings();
         for ($i = 0; $i < 100; $i++) {
             $message1 = new Notification(date_format(new \DateTime(), 'H:m:i'), $this->kernel->getCacheDir() . '/ertan1.txt');
-            $dispatcherService->dispatchRoundRobin($message1);
-
-            $message2 = new Notification2(date_format(new \DateTime(), 'H:m:i'), $this->kernel->getCacheDir() . '/ertan2.txt');
-            $dispatcherService->dispatchRoundRobin($message2);
-
-            $message3 = new Notification3(date_format(new \DateTime(), 'H:m:i'), $this->kernel->getCacheDir() . '/ertan3.txt');
-            $dispatcherService->dispatchRoundRobin($message3);
-
+            $messengerBaseService->getDispatcherService()->dispatchRoundRobin($message1);
 
         }
 
