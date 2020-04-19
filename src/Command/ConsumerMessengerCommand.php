@@ -29,7 +29,7 @@ use Symfony\Component\Messenger\Worker;
 
 class ConsumerMessengerCommand extends Command
 {
-    protected static $defaultName = 'ertan:consume';
+    protected static $defaultName = 'messenger:management-consumer';
 
     private $routableBus;
     private $logger;

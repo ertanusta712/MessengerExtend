@@ -29,7 +29,7 @@ class QueueService
     private $apiDsn;
 
 
-    public function __construct($dsn,$apiDsn,RedisService $redisService, ContainerInterface $container)
+    public function __construct($dsn, $apiDsn, RedisService $redisService, ContainerInterface $container)
     {
         $this->setRedisService($redisService);
         $this->setContainer($container);
@@ -51,16 +51,39 @@ class QueueService
     public function getQueueStats($queueName): ?array
     {
         try {
-            $client= HttpClient::create()->request('GET',$this->getApiDsn().'/'.$queueName,[
-                'auth_basic'=>[$this->getUser(),$this->getPassword()]
+            $client = HttpClient::create()->request('GET', $this->getApiDsn() . '/' . $queueName, [
+                'auth_basic' => [$this->getUser(), $this->getPassword()]
             ]);
-            $queueStatus = json_decode($client->getContent(),true);
+            $queueStatus = json_decode($client->getContent(), true);
             return [
-                'messageCount'=>$queueStatus['messages'],
-                'messagePerConsume'=>$queueStatus['messages_unacknowledged'],
-                'status'=>$queueStatus['idle_since'] ?? 'running'
+                'messageCount' => $queueStatus['messages'],
+                'messagePerConsume' => $queueStatus['messages_unacknowledged'],
+                'status' => $queueStatus['idle_since'] ?? 'running',
+                'queueName' => $queueStatus['name']
             ];
-        }catch (\Exception $exception){
+        } catch (\Exception $exception) {
+            throw new \RuntimeException($exception->getMessage());
+        }
+    }
+
+    public function getAllQueueStats(): ?array
+    {
+        try {
+            $client = HttpClient::create()->request('GET', $this->getApiDsn(), [
+                'auth_basic' => [$this->getUser(), $this->getPassword()]
+            ]);
+            $queuesStatus = json_decode($client->getContent(), true);
+            $status = [];
+            foreach ($queuesStatus as $value) {
+                $status[] = [
+                    'messageCount' => $value['messages'],
+                    'messagePerConsume' => $value['messages_unacknowledged'],
+                    'status' => $value['idle_since'] ?? 'running',
+                    'queueName' => $value['name']
+                ];
+            }
+            return $status;
+        } catch (\Exception $exception) {
             throw new \RuntimeException($exception->getMessage());
         }
     }
@@ -71,46 +94,52 @@ class QueueService
      * @return bool
      * @throws \Exception
      */
-    public function createNewQueue($transportName,$queueName): bool
+    public function createNewQueue($transportName, $queueName): bool
     {
-        $transports=$this->getTransports();
-
-        if (!array_key_exists($queueName,$transports[$transportName]['options']['queues'])){
-            $transports[$transportName]['options']['queues'][$queueName]=['binding_keys'=>[$queueName]];
+        $transports = $this->getTransports();
+        if (!array_key_exists($queueName, $transports[$transportName]['options']['queues'])) {
+            $transports[$transportName]['options']['queues'][$queueName] = ['binding_keys' => [$queueName]];
             $this->setTransports($transports);
-            $routings=$this->getRoutingsKeys();
-            $routings[$transportName][]=$queueName;
+            $routings = $this->getRoutingsKeys();
+            $routings[$transportName][] = $queueName;
             $this->setRoutingsKeys($routings);
             $this->updateRedisConfig();
+            $connection = Connection::fromDsn($this->getDsn(), $this->getTransports()[$transportName]['options']);
+            $connection->queue($queueName)->declareQueue();
+            $connection->queue($queueName)->bind($this->getTransports()[$transportName]['options']['exchange']['name'], $queueName);
+            return true;
         }
-        $connection=Connection::fromDsn($this->getDsn(),$this->getTransports()[$transportName]['options']);
-        $connection->queue($queueName)->declareQueue();
-        $connection->queue($queueName)->bind($this->getTransports()[$transportName]['options']['exchange']['name'],$queueName);
-        return true;
+
+        return false;
     }
 
     /**
-     * @param $transportName
+     * Kuyruk dolu olsun olmasın siler
+     * $force parametresinin tru olması durumunda config içerisinde de kuyruğu siler
      * @param $queueName
+     * @param bool $force
      * @return bool
-     * @throws \AMQPChannelException
-     * @throws \AMQPConnectionException
      */
-    public function forceDeleteQueue($transportName,$queueName){
-        $transports=$this->getTransports();
-        if (array_key_exists($queueName,$transports[$transportName]['options']['queues'])){
+    public function deleteQueue($queueName, $force = false): bool
+    {
+        $transports = $this->getTransports();
+        $transportName = $this->getTransportNameForQueue($queueName);
+        if ($transportName === null) return false;
+        if (array_key_exists($queueName, $transports[$transportName]['options']['queues'])) {
             try {
-                $connection=Connection::fromDsn($this->getDsn(),$this->getTransports()[$transportName]['options']);
+                $connection = Connection::fromDsn($this->getDsn(), $this->getTransports()[$transportName]['options']);
                 $connection->queue($queueName)->purge();
                 $connection->queue($queueName)->delete();
-                unset($transports[$transportName]['options']['queues'][$queueName]);
-                $this->setTransports($transports);
-                $routings=$this->getRoutingsKeys();
-                unset($routings[$transportName][array_search($queueName,$routings[$transportName])]);
-                $routings[$transportName]=array_values($routings[$transportName]);
-                $this->setRoutingsKeys($routings);
-                $this->updateRedisConfig();
-            }catch (\Exception $exception){
+                if ($force) {
+                    unset($transports[$transportName]['options']['queues'][$queueName]);
+                    $this->setTransports($transports);
+                    $routings = $this->getRoutingsKeys();
+                    unset($routings[$transportName][array_search($queueName, $routings[$transportName])]);
+                    $routings[$transportName] = array_values($routings[$transportName]);
+                    $this->setRoutingsKeys($routings);
+                    $this->updateRedisConfig();
+                }
+            } catch (\Exception $exception) {
                 throw  new RuntimeException($exception->getMessage());
             }
         }
@@ -118,59 +147,82 @@ class QueueService
     }
 
     /**
-     * Kuyruk dolu olsun olmasın tüm taşıyıcı altında ki tüm kuyrukları boşaltır
+     * Tüm kuyrukları siler $force parametresine göre config içerisinden de siler
+     * @param bool $force
+     * @return bool
      */
-    public function forceDeleteEmptyQueue(){
-        $transports=$this->getTransports();
-        $routings=$this->getRoutingsKeys();
-        foreach ($routings as $transportName => $queues){
-            $connection=Connection::fromDsn($this->getDsn(),$this->getTransports()[$transportName]['options']);
-            foreach ($queues as $queue){
+    public function deleteAllQueues($force = false): bool
+    {
+        $transports = $this->getTransports();
+        $routings = $this->getRoutingsKeys();
+        foreach ($routings as $transportName => $queues) {
+            $connection = Connection::fromDsn($this->getDsn(), $this->getTransports()[$transportName]['options']);
+            foreach ($queues as $queue) {
                 try {
                     $connection->queue($queue)->purge();
                     $connection->queue($queue)->delete();
-                    unset($transports[$transportName]['options']['queues'][$queue]);
-                    $this->setTransports($transports);
-                    $routings=$this->getRoutingsKeys();
-                    unset($routings[$transportName][array_search($queue,$routings[$transportName])]);
-                    $routings[$transportName]=array_values($routings[$transportName]);
-                    $this->setRoutingsKeys($routings);
-                }catch (\Exception $exception){
+                    if ($force) {
+                        unset($transports[$transportName]['options']['queues'][$queue]);
+                        $this->setTransports($transports);
+                        $routings = $this->getRoutingsKeys();
+                        unset($routings[$transportName][array_search($queue, $routings[$transportName])]);
+                        $routings[$transportName] = array_values($routings[$transportName]);
+                        $this->setRoutingsKeys($routings);
+                        $this->updateRedisConfig();
+                    }
+                } catch (\Exception $exception) {
                     throw  new RuntimeException($exception->getMessage());
                 }
 
             }
         }
-        $this->updateRedisConfig();
         return true;
     }
 
     /**
      * seçili kuyruğu boşaltır
-     * @param $transportName
      * @param $queueName
+     * @return bool
      * @throws \AMQPChannelException
      * @throws \AMQPConnectionException
      */
-    public function purgeQueue($transportName,$queueName){
-        $transports=$this->getTransports();
-        if (array_key_exists($queueName,$transports[$transportName]['options']['queues'])){
-            $connection=Connection::fromDsn($this->getDsn(),$this->getTransports()[$transportName]['options']);
+    public function purgeQueue($queueName): bool
+    {
+        $transportName = $this->getTransportNameForQueue($queueName);
+        if ($transportName === null) return false;
+        $transports = $this->getTransports();
+        if (array_key_exists($queueName, $transports[$transportName]['options']['queues'])) {
+            $connection = Connection::fromDsn($this->getDsn(), $this->getTransports()[$transportName]['options']);
             $connection->queue($queueName)->purge();
+            return true;
         }
+        return false;
     }
 
     /**
      * Taşıyıcı altında ki tüm kuyrukları boşaltır kuyruları boşaltır
      * @param $transportName
      */
-    public function purgeAllQueues($transportName){
-        $connection=Connection::fromDsn($this->getDsn(),$this->getTransports()[$transportName]['options']);
+    public function purgeAllQueues($transportName)
+    {
+        $connection = Connection::fromDsn($this->getDsn(), $this->getTransports()[$transportName]['options']);
         $connection->purgeQueues();
     }
 
-
-
+    /**
+     * Kuyruk adına göre taşıyıcıyı döner
+     * @param string $queueName
+     * @return int|string|null
+     */
+    public function getTransportNameForQueue($queueName)
+    {
+        foreach ($this->getRoutingsKeys() as $key => $value) {
+            if (in_array($queueName, $value)) {
+                return $key;
+            }
+        }
+        return null;
+    }
 
 
     /**
@@ -204,7 +256,6 @@ class QueueService
     {
         $this->apiDsn = $apiDsn;
     }
-
 
 
 }

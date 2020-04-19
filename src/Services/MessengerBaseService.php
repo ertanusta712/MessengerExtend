@@ -55,6 +55,7 @@ class MessengerBaseService
      */
     public function getQueueService(): QueueService
     {
+        $this->queueService->updateLocalConfig();
         return $this->queueService;
     }
 
@@ -87,6 +88,7 @@ class MessengerBaseService
      */
     public function getDispatcherService(): DispatcherService
     {
+        $this->dispatcherService->updateLocalConfig();
         return $this->dispatcherService;
     }
 
@@ -103,6 +105,7 @@ class MessengerBaseService
      */
     public function getConsumerService(): ConsumerService
     {
+        $this->consumerService->updateLocalConfig();
         return $this->consumerService;
     }
 

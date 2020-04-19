@@ -52,10 +52,7 @@ class MessengerController extends AbstractController
 
 
 
-        $messengerBaseService->refreshSettings();
-        $messengerBaseService->updateLocalConfig();
-        $messengerBaseService->getQueueService()->deleteEmptyQueue();
-        $messengerBaseService->getQueueService()->refreshSettings();
+        $messengerBaseService->getQueueService()->createNewQueue('transport1','ertan_1');
         for ($i = 0; $i < 100; $i++) {
             $message1 = new Notification(date_format(new \DateTime(), 'H:m:i'), $this->kernel->getCacheDir() . '/ertan1.txt');
             $messengerBaseService->getDispatcherService()->dispatchRoundRobin($message1);

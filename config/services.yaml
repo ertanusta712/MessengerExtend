@@ -42,6 +42,10 @@ services:
 
     App\Command\MessengerManagementCommand:
         arguments:
+            - 1
+            - 10
+            - true
+            - 2
             - '@App\Services\MessengerBaseService'
 
 

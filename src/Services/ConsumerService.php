@@ -27,6 +27,7 @@ class ConsumerService
         $this->setQueueService($queueService);
         $this->setRedisService($redisService);
         $this->setContainer($container);
+        $this->setDsn($dsn);
         $this->parseDsn($dsn);
         $this->parseTransports();
         $this->parseRoutings();
