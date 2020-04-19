@@ -6,6 +6,7 @@ namespace App\Traits;
 
 use App\Services\IdeasoftMessenger;
 use App\Services\RedisService;
+use phpDocumentor\Reflection\Types\This;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\Yaml\Yaml;
 
@@ -71,7 +72,7 @@ trait QueueHelper
         $this->setRoutingsKeys($routingKeys);
         $this->setTransports($transports);
         $this->setStaticRoutingsKeys($routingKeys);
-        $this->setStaticTransports($transports);
+        $this->setStaticTransports($this->getTransports());
     }
 
     private function parseRoutings()
@@ -88,7 +89,7 @@ trait QueueHelper
             }
         }
         $this->setRoutings($routings);
-        $this->setStaticTransports($routings);
+        $this->setRoutings($routings);
     }
 
 
@@ -111,6 +112,7 @@ trait QueueHelper
         $this->parseDsn($this->getDsn());
         $this->parseTransports();
         $this->parseRoutings();
+
 
         if ($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT) === false) {
             $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_TRANSPORT, json_encode($this->getTransports()));
@@ -330,6 +332,7 @@ trait QueueHelper
      */
     public function setStaticRoutingsKeys(array $staticRoutingsKeys): void
     {
+
         $this->staticRoutingsKeys = $staticRoutingsKeys;
     }
 
@@ -348,7 +351,5 @@ trait QueueHelper
     {
         $this->staticTransports = $staticTransports;
     }
-
-
 
 }

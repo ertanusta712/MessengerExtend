@@ -17,7 +17,7 @@ class NotificationHandler implements MessageHandlerInterface
      */
     public function __invoke(MessageInterface $notification)
     {
-        sleep(3);
+        sleep(1);
         $content = file_get_contents($notification->getPath());
         $content .= PHP_EOL;
         $newContent = 'Kuyruğa Giriş: ' . $notification->getMessage() . 'Kuyruktan Çıkış: ' . date_format(new \DateTime(), 'H:i:s');

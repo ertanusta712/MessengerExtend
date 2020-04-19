@@ -45,7 +45,8 @@ services:
             - 1
             - 10
             - true
-            - 2
+            - 5
+            - 100
             - '@App\Services\MessengerBaseService'
 
 

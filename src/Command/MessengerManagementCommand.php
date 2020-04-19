@@ -34,8 +34,11 @@ class MessengerManagementCommand extends Command
     /** @var int $consumerLimitPerQueue */
     private $consumerLimitPerQueue;
 
+    /** @var int $callConsumerPerMessageCount */
+    private $callConsumerPerMessageCount;
 
-    public function __construct($consumerPerQueue, $maxConsumerCount,$forceDeleteQueue,$consumerLimitPerQueue, MessengerBaseService $messengerBaseService)
+
+    public function __construct($consumerPerQueue, $maxConsumerCount,$forceDeleteQueue,$consumerLimitPerQueue,$callConsumerPerMessageCount, MessengerBaseService $messengerBaseService)
     {
         parent::__construct();
         $this->consumerPerQueue = $consumerPerQueue;
@@ -43,6 +46,7 @@ class MessengerManagementCommand extends Command
         $this->forceDeleteQueue = $forceDeleteQueue;
         $this->consumerLimitPerQueue = $consumerLimitPerQueue;
         $this->messengerBaseService = $messengerBaseService;
+        $this->callConsumerPerMessageCount = $callConsumerPerMessageCount;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -72,7 +76,7 @@ class MessengerManagementCommand extends Command
         $queueStatus=$this->getMessengerBaseService()->getQueueService()->getAllQueueStats();
         foreach ($queueStatus as $status){
             sleep(1);
-            if ($status['messageCount'] > 0 && $status['messagePerConsume'] < $this->consumerLimitPerQueue ){
+            if ($status['messageCount'] > 0 && $status['messagePerConsume'] < $this->consumerLimitPerQueue && $status['messageCount'] > $this->callConsumerPerMessageCount){
                 $transportName=$this->getMessengerBaseService()->getQueueService()->getTransportNameForQueue($status['queueName']);
                 $output->writeln(sprintf('Consumer çağrısı gerçekleşti. Açılan Consumer Taşıyıcı Adı: %s  Kuyruk Adı: %s',$transportName,$status['queueName']));
                 $consumer = Process::fromShellCommandline('$(which php) ' . __DIR__ . '/../../bin/console messenger:management-consumer  ' . $transportName . ' -s ' . $status['queueName'] . ' 2>/dev/null &');

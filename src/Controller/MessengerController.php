@@ -51,11 +51,11 @@ class MessengerController extends AbstractController
           dd(Yaml::parseFile($path.'/config/'.$ertan[1].'/'.$ertan[2]));*/
 
 
+        for ($i = 0; $i < 1000; $i++) {
+            $message1 = new Notification(date_format(new \DateTime(), 'H:m:i'), $this->kernel->getCacheDir() . '/ertan1.txt');
+            $messengerBaseService->getDispatcherService()->dispatchRoundRobin($message1);
 
-        $messengerBaseService->getQueueService()->createNewQueue('transport1','ertan_7');
-        $messengerBaseService->getQueueService()->createNewQueue('transport1','ertan_6');
-
-        $messengerBaseService->getQueueService()->createNewQueue('transport1','ertan_7');
+        }
 
 
 

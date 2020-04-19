@@ -4,11 +4,8 @@
 namespace App\Services;
 
 
-use AMQPQueue;
 use App\Traits\QueueHelper;
 use http\Exception\RuntimeException;
-use phpDocumentor\Reflection\DocBlock\Description;
-use phpDocumentor\Reflection\Types\This;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\Messenger\Transport\AmqpExt\Connection;
@@ -122,6 +119,7 @@ class QueueService
      */
     public function deleteQueue($queueName, $force = false): bool
     {
+        dd($this->checkStaticQueue($queueName));
         if ($this->checkStaticQueue($queueName)){
             return false;
         }
@@ -143,7 +141,7 @@ class QueueService
                     $this->updateRedisConfig();
                 }
             } catch (\Exception $exception) {
-                throw  new RuntimeException($exception->getMessage());
+                throw  new \Exception($exception->getMessage());
             }
         }
         return true;
@@ -231,11 +229,10 @@ class QueueService
     }
 
     public function checkStaticQueue($queueName){
-        foreach ($this->getStaticRoutings() as $key => $value) {
+        foreach ($this->getStaticRoutingsKeys() as $key => $value) {
             if (in_array($queueName, $value)) {
                 return true;
             }
-            var_dump("check static başarısız oldu");
         }
         return false;
     }
