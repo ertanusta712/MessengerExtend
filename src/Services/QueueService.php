@@ -122,6 +122,9 @@ class QueueService
      */
     public function deleteQueue($queueName, $force = false): bool
     {
+        if ($this->checkStaticQueue($queueName)){
+            return false;
+        }
         $transports = $this->getTransports();
         $transportName = $this->getTransportNameForQueue($queueName);
         if ($transportName === null) return false;
@@ -158,6 +161,9 @@ class QueueService
         foreach ($routings as $transportName => $queues) {
             $connection = Connection::fromDsn($this->getDsn(), $this->getTransports()[$transportName]['options']);
             foreach ($queues as $queue) {
+                if ($this->checkStaticQueue($queue)){
+                    continue;
+                }
                 try {
                     $connection->queue($queue)->purge();
                     $connection->queue($queue)->delete();
@@ -222,6 +228,16 @@ class QueueService
             }
         }
         return null;
+    }
+
+    public function checkStaticQueue($queueName){
+        foreach ($this->getStaticRoutings() as $key => $value) {
+            if (in_array($queueName, $value)) {
+                return true;
+            }
+            var_dump("check static başarısız oldu");
+        }
+        return false;
     }
 
 

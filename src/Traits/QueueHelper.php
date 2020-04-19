@@ -39,6 +39,15 @@ trait QueueHelper
     /** @var RedisService $redisService */
     private $redisService;
 
+    /** @var array $staticRoutins */
+    private $staticRoutings = [];
+
+    /** @var array $staticRoutingsKeys */
+    private $staticRoutingsKeys = [];
+
+    /** @var array $staticTransports */
+    private $staticTransports = [];
+
     private function parseTransports()
     {
         $transports = array();
@@ -53,14 +62,16 @@ trait QueueHelper
                 $transports[$key] = $value;
             }
         }
-        $routingKeys=array();
-        foreach ($transports as $key => $value){
-            foreach ($value['options']['queues'] as $item){
-             $routingKeys[$key][]=$item['binding_keys'][0];
+        $routingKeys = array();
+        foreach ($transports as $key => $value) {
+            foreach ($value['options']['queues'] as $item) {
+                $routingKeys[$key][] = $item['binding_keys'][0];
             }
         }
         $this->setRoutingsKeys($routingKeys);
         $this->setTransports($transports);
+        $this->setStaticRoutingsKeys($routingKeys);
+        $this->setStaticTransports($transports);
     }
 
     private function parseRoutings()
@@ -77,6 +88,7 @@ trait QueueHelper
             }
         }
         $this->setRoutings($routings);
+        $this->setStaticTransports($routings);
     }
 
 
@@ -96,10 +108,11 @@ trait QueueHelper
      */
     private function init(): void
     {
+        $this->parseDsn($this->getDsn());
+        $this->parseTransports();
+        $this->parseRoutings();
+
         if ($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT) === false) {
-            $this->parseDsn($this->getDsn());
-            $this->parseTransports();
-            $this->parseRoutings();
             $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_TRANSPORT, json_encode($this->getTransports()));
             $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTINGS, json_encode($this->getRoutings()));
             $this->getRedisService()->getClient()->set(IdeasoftMessenger::REDIS_ROUTING_KEYS, json_encode($this->getRoutingsKeys()));
@@ -136,7 +149,8 @@ trait QueueHelper
     /**
      * Local configleri günceller
      */
-    public function updateLocalConfig(){
+    public function updateLocalConfig()
+    {
         $this->setTransports(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_TRANSPORT), true));
         $this->setRoutings(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTINGS), true));
         $this->setRoutingsKeys(json_decode($this->getRedisService()->getClient()->get(IdeasoftMessenger::REDIS_ROUTING_KEYS), true));
@@ -287,6 +301,53 @@ trait QueueHelper
         $this->redisService = $redisService;
     }
 
+    /**
+     * @return array
+     */
+    public function getStaticRoutings(): array
+    {
+        return $this->staticRoutings;
+    }
+
+    /**
+     * @param array $staticRoutings
+     */
+    public function setStaticRoutings(array $staticRoutings): void
+    {
+        $this->staticRoutings = $staticRoutings;
+    }
+
+    /**
+     * @return array
+     */
+    public function getStaticRoutingsKeys(): array
+    {
+        return $this->staticRoutingsKeys;
+    }
+
+    /**
+     * @param array $staticRoutingsKeys
+     */
+    public function setStaticRoutingsKeys(array $staticRoutingsKeys): void
+    {
+        $this->staticRoutingsKeys = $staticRoutingsKeys;
+    }
+
+    /**
+     * @return array
+     */
+    public function getStaticTransports(): array
+    {
+        return $this->staticTransports;
+    }
+
+    /**
+     * @param array $staticTransports
+     */
+    public function setStaticTransports(array $staticTransports): void
+    {
+        $this->staticTransports = $staticTransports;
+    }
 
 
 
