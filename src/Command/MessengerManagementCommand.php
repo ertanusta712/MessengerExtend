@@ -79,7 +79,7 @@ class MessengerManagementCommand extends Command
             if ($status['messageCount'] > 0 && $status['messagePerConsume'] < $this->consumerLimitPerQueue && $status['messageCount'] > $this->callConsumerPerMessageCount){
                 $transportName=$this->getMessengerBaseService()->getQueueService()->getTransportNameForQueue($status['queueName']);
                 $output->writeln(sprintf('Consumer çağrısı gerçekleşti. Açılan Consumer Taşıyıcı Adı: %s  Kuyruk Adı: %s',$transportName,$status['queueName']));
-                $consumer = Process::fromShellCommandline('$(which php) ' . __DIR__ . '/../../bin/console messenger:management-consumer  ' . $transportName . ' -s ' . $status['queueName'] . ' 2>/dev/null &');
+                $consumer = Process::fromShellCommandline('$(which php) ' . __DIR__ . '/../../bin/console messenger:management-consumer  ' . $transportName . ' -s ' . $status['queueName'] . ' 2>/dev/null');
                 $consumer->start();
 
             }
@@ -100,7 +100,6 @@ class MessengerManagementCommand extends Command
         $output->writeln('---- Consumer durumları izleniyor ----');
         $consumerList = $this->getCurrentConsumerList();
         foreach ($consumerList as $value) {
-            sleep(1);
             $consumerInfo = explode(' ', $value);
             $status = $this->getMessengerBaseService()->getQueueService()->getQueueStats($consumerInfo[2]);
             $output->writeln(sprintf('Çalışan Consumer PID: %s Consumer Taşıyıcı Adı: %s Kuyruk Adı: %s',$consumerInfo[0],$consumerInfo[1],$consumerInfo[2]));
@@ -139,6 +138,7 @@ class MessengerManagementCommand extends Command
     /**
      * @param array $queueStatus
      * @param OutputInterface $output
+     * @throws \Exception
      */
     private function closeQueue($queueStatus, $output): void
     {
@@ -156,7 +156,7 @@ class MessengerManagementCommand extends Command
      */
     private function parseConsumerList()
     {
-        exec("ps aux | grep -i [m]essenger:management-consumer | grep -v grep | awk {'print $2 , $14 , $16'} ", $consumerList);
+        exec("ps aux | grep -i [m]essenger:management-consumer | grep -v grep |  grep -v 'sh -c' | awk {'print $2 , $14 , $16'} ", $consumerList);
         $this->setCurrentConsumerList($consumerList);
     }
 

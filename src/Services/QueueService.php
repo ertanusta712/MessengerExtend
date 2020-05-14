@@ -119,7 +119,6 @@ class QueueService
      */
     public function deleteQueue($queueName, $force = false): bool
     {
-        dd($this->checkStaticQueue($queueName));
         if ($this->checkStaticQueue($queueName)){
             return false;
         }
